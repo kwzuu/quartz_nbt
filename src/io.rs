@@ -212,7 +212,7 @@ fn write_tag_body<W: Write>(writer: &mut W, tag: &NbtTag) -> Result<(), NbtIoErr
         NbtTag::String(value) => raw::write_string(writer, value)?,
         NbtTag::List(value) =>
             if value.is_empty() {
-                writer.write_all(&[raw::id_for_tag(None), 0, 0, 0, 0])?;
+                writer.write_all(&[value.1.tag(), 0, 0, 0, 0])?;
             } else {
                 let list_type = raw::id_for_tag(Some(&value[0]));
                 raw::write_u8(writer, list_type)?;

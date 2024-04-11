@@ -66,6 +66,44 @@ pub enum NbtTag {
     LongArray(Vec<i64>),
 }
 
+/// The different kinds of NBT tag, for use with empty lists.
+#[derive(Copy, Clone, PartialEq)]
+pub enum NbtTagKind {
+    End,
+    Byte,
+    Short,
+    Int,
+    Long,
+    Float,
+    Double,
+    ByteArray,
+    String,
+    List,
+    Compound,
+    IntArray,
+    LongArray,
+}
+
+impl NbtTagKind {
+    pub(crate) fn tag(self) -> u8 {
+        match self {
+            NbtTagKind::End => 0,
+            NbtTagKind::Byte => 1,
+            NbtTagKind::Short => 2,
+            NbtTagKind::Int => 3,
+            NbtTagKind::Long => 4,
+            NbtTagKind::Float => 5,
+            NbtTagKind::Double => 6,
+            NbtTagKind::ByteArray => 7,
+            NbtTagKind::String => 8,
+            NbtTagKind::List => 9,
+            NbtTagKind::Compound => 10,
+            NbtTagKind::IntArray => 11,
+            NbtTagKind::LongArray => 12,
+        }
+    }
+}
+
 impl NbtTag {
     /// Returns the single character denoting this tag's type, or `None` if this tag has no type
     /// specifier.
@@ -632,15 +670,14 @@ impl TryFrom<NbtTag> for Vec<u8> {
 ///
 /// [`io`]: crate::io
 /// [`NbtTag`]: crate::NbtTag
-#[repr(transparent)]
 #[derive(Clone, PartialEq)]
-pub struct NbtList(pub(crate) Vec<NbtTag>);
+pub struct NbtList(pub(crate) Vec<NbtTag>, pub(crate) NbtTagKind);
 
 impl NbtList {
     /// Returns a new NBT tag list with an empty internal vec.
     #[inline]
     pub const fn new() -> Self {
-        NbtList(Vec::new())
+        NbtList(Vec::new(), NbtTagKind::End)
     }
 
     /// Returns a mutable reference to the internal vector of this NBT list.
@@ -658,7 +695,7 @@ impl NbtList {
     /// Returns a new NBT tag list with the given initial capacity.
     #[inline]
     pub fn with_capacity(capacity: usize) -> Self {
-        NbtList(Vec::with_capacity(capacity))
+        NbtList(Vec::with_capacity(capacity), NbtTagKind::End)
     }
 
     /// Clones the data in the given list and converts it into an [`NbtList`].
@@ -679,7 +716,7 @@ impl NbtList {
         T: Clone + Into<NbtTag> + 'a,
         L: IntoIterator<Item = &'a T>,
     {
-        NbtList(list.into_iter().map(|x| x.clone().into()).collect())
+        NbtList(list.into_iter().map(|x| x.clone().into()).collect(), NbtTagKind::End)
     }
 
     /// Creates an [`NbtList`] of [`NbtCompound`]s by mapping each element in the given list to its
@@ -698,7 +735,7 @@ impl NbtList {
         T: NbtRepr + 'a,
         L: IntoIterator<Item = &'a T>,
     {
-        NbtList(list.into_iter().map(|x| x.to_nbt().into()).collect())
+        NbtList(list.into_iter().map(|x| x.to_nbt().into()).collect(), NbtTagKind::End)
     }
 
     /// Iterates over this tag list, converting each tag reference into the specified type.
@@ -882,7 +919,7 @@ impl Default for NbtList {
 impl<T: Into<NbtTag>> From<Vec<T>> for NbtList {
     #[inline]
     fn from(list: Vec<T>) -> Self {
-        NbtList(list.into_iter().map(|x| x.into()).collect())
+        NbtList(list.into_iter().map(|x| x.into()).collect(), NbtTagKind::End)
     }
 }
 
@@ -919,7 +956,7 @@ impl<'a> IntoIterator for &'a mut NbtList {
 impl FromIterator<NbtTag> for NbtList {
     #[inline]
     fn from_iter<T: IntoIterator<Item = NbtTag>>(iter: T) -> Self {
-        NbtList(Vec::from_iter(iter))
+        NbtList(Vec::from_iter(iter), NbtTagKind::End)
     }
 }
 
@@ -1541,7 +1578,7 @@ mod serde_impl {
                         ArbitraryList::Byte(list) => NbtTag::ByteArray(list),
                         ArbitraryList::Int(list) => NbtTag::IntArray(list),
                         ArbitraryList::Long(list) => NbtTag::LongArray(list),
-                        ArbitraryList::Tag(list) => NbtTag::List(NbtList(list)),
+                        ArbitraryList::Tag(list) => NbtTag::List(NbtList(list, NbtTagKind::End)),
                         ArbitraryList::Indeterminate => NbtTag::List(NbtList::new()),
                     }
                 }
@@ -1589,12 +1626,15 @@ mod serde_impl {
                 Ok(Some(TypeHint { hint: Some(tag_id) })) => match (list, tag_id) {
                     (ArbitraryList::Byte(list), 0x9) => Ok(NbtTag::List(NbtList(
                         list.into_iter().map(Into::into).collect(),
+                        NbtTagKind::End
                     ))),
                     (ArbitraryList::Int(list), 0x9) => Ok(NbtTag::List(NbtList(
                         list.into_iter().map(Into::into).collect(),
+                        NbtTagKind::End
                     ))),
                     (ArbitraryList::Long(list), 0x9) => Ok(NbtTag::List(NbtList(
                         list.into_iter().map(Into::into).collect(),
+                        NbtTagKind::End
                     ))),
                     (ArbitraryList::Indeterminate, 0x7) => Ok(NbtTag::ByteArray(Vec::new())),
                     (ArbitraryList::Indeterminate, 0xB) => Ok(NbtTag::IntArray(Vec::new())),
@@ -1618,7 +1658,7 @@ mod serde_impl {
         #[inline]
         fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
         where D: Deserializer<'de> {
-            Ok(NbtList(Deserialize::deserialize(deserializer)?))
+            Ok(NbtList(Deserialize::deserialize(deserializer)?, NbtTagKind::End))
         }
     }
 

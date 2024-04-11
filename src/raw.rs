@@ -1,4 +1,4 @@
-use crate::{io::NbtIoError, NbtTag};
+use crate::{io::NbtIoError, NbtTag, NbtTagKind};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use std::{
     io::{Read, Result, Write},
