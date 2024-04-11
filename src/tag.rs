@@ -680,6 +680,11 @@ impl NbtList {
         NbtList(Vec::new(), NbtTagKind::End)
     }
 
+    #[inline]
+    pub const fn new_with_tag_kind_if_empty(tag_kind: NbtTagKind) -> Self {
+        Self(Vec::new(), tag_kind)
+    }
+
     /// Returns a mutable reference to the internal vector of this NBT list.
     #[inline]
     pub fn inner_mut(&mut self) -> &mut Vec<NbtTag> {
